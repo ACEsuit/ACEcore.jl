@@ -1,0 +1,13 @@
+name = "ACEcore"
+uuid = "44c1e890-45d1-48ea-94d6-c2ea5b573f71"
+authors = ["Christoph Ortner <christohortner@gmail.com> and contributors"]
+version = "0.0.1"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

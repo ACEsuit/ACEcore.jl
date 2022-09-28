@@ -3,6 +3,11 @@ uuid = "44c1e890-45d1-48ea-94d6-c2ea5b573f71"
 authors = ["Christoph Ortner <christohortner@gmail.com> and contributors"]
 version = "0.0.1"
 
+[deps]
+Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
 [compat]
 julia = "1"
 

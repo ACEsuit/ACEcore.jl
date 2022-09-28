@@ -27,9 +27,9 @@ end
 (basis::ProdBasis)(A::AbstractVector) = evaluate(basis, A)
 
 function evaluate(basis::ProdBasis, A::AbstractVector)
-   AA = zeros(eltype(A), length(basis.dag))
-   evaluate!(AA, basis.dag, A)
-   return AA
+   AAdag = zeros(eltype(A), length(basis.dag))
+   evaluate!(AAdag, basis.dag, A)
+   return AAdag[basis.dag.projection]
 end
 
 
@@ -39,17 +39,15 @@ function evaluate!(AAdag, dag::AAEvalGraph, A)
    @assert length(A) >= dag.num1
 
    # Stage-1: copy the 1-particle basis into AAdag
-   # @inbounds 
-   for i = 1:dag.num1
+   @inbounds for i = 1:dag.num1
       AAdag[i] = A[i]
    end
 
    # Stage-2: go through the dag and store the intermediate results we need
-   # @inbounds 
-   for i = (dag.num1+1):length(dag)
+   @inbounds for i = (dag.num1+1):length(dag)
       n1, n2 = nodes[i]
       AAdag[i] = AAdag[n1] * AAdag[n2]
    end
 
-   return AAdag 
+   return AAdag
 end

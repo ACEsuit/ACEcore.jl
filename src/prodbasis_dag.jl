@@ -162,13 +162,17 @@ function AAEvalGraph(spec::AbstractVector;
    numstore = length(nodes)
    num1old = num1
 
-   # re-organise the dag layout to minimise numstore
-   nodesfinal, num1, numstore = _reorder_dag!(nodes)
+   projection = [ specnew_dict[vv] for vv in spec ]
 
-   return AAEvalGraph(nodesfinal, num1, numstore, Int[])
+   # re-organise the dag layout to minimise numstore
+   # nodesfinal, num1, numstore = _reorder_dag!(nodes)
+
+   return AAEvalGraph(nodes, num1, numstore, projection)
 end
 
 
+# TODO: this is currently not used; first need to add the functionality to 
+#       to update specnew_dict i.e. the inverse mapping of specnew
 function _reorder_dag!(nodes::Vector{BinDagNode})
    # collect all AA indices that are used anywhere in the dag
    newinds = zeros(Int, length(nodes))

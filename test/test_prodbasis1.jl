@@ -1,6 +1,8 @@
 
+using Test
 using ACEcore, BenchmarkTools
-using ACEcore: SimpleProdBasis, ProdBasis, ProdBasis2
+using ACEcore: SimpleProdBasis, SparseSymmetricProduct, release! 
+using Polynomials4ML.Testing: println_slim, print_tf
 
 ##
 
@@ -8,31 +10,27 @@ M = 20
 spec = ACEcore.Testing.generate_SO2_spec(5, M)
 A = randn(ComplexF64, 2*M+1)
 
+## 
+
+@info("Test consistency of SparseSymmetricProduct with SimpleProdBasis")
 basis1 = SimpleProdBasis(spec)
 AA1 = basis1(A)
 
-##
-
-basis2 = ProdBasis(spec)
+basis2 = SparseSymmetricProduct(spec; T = ComplexF64)
 AA2 = basis2(A)
 
-basis3 = ProdBasis2(spec; T = ComplexF64)
-AA3 = basis3(A)
+println_slim(@test AA1 ≈ AA2)
 
-@btime $basis1($A)
-@btime $basis2($A)
-@btime $basis3($A)
-@btime (AA = $basis3($A); ACEcore.release!(AA))
+## 
 
-AA1 ≈ AA2 ≈ AA3 
+@info("Test consistency of serial and batched evaluation")
 
-
-##
-
-@profview let basis = basis3, A = A 
-   for n = 1:1000_000 
-      AA = basis(A)
-      ACEcore.release!(AA)
-   end
+nX = 32
+bA = randn(ComplexF64, nX, 2*M+1)
+bAA1 = zeros(ComplexF64, nX, length(spec))
+for i = 1:nX
+   bAA1[i, :] = basis1(bA[i, :])
 end
+bAA2 = basis2(bA)
 
+println_slim(@test bAA1 ≈ bAA2)

@@ -2,10 +2,11 @@ module ACEcore
 
 using ObjectPools: ArrayCache, TempArray, acquire!, release!
 
-include("simpleprodbasis.jl")
+include("sparseprod.jl")
 
-include("prodbasis_dag.jl")
-include("spsymprod.jl")
+include("simpleprodbasis.jl")
+include("symmprod_dag.jl")
+include("sparsesymmprod.jl")
 
 include("testing.jl")
 

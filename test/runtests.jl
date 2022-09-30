@@ -2,5 +2,5 @@ using ACEcore
 using Test
 
 @testset "ACEcore.jl" begin
-    # Write your tests here.
+    @testset "SparseSymmTensor" begin include("test_prodbasis1.jl") end 
 end

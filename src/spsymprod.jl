@@ -1,5 +1,5 @@
+
 using LoopVectorization
-import Polynomials4ML: TempArray, ArrayCache, acquire!, release!
 
 
 

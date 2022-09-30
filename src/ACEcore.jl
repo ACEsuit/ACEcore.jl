@@ -1,5 +1,7 @@
 module ACEcore
 
+using ObjectPools: ArrayCache, TempArray, acquire!, release!
+
 include("simpleprodbasis.jl")
 
 include("prodbasis_dag.jl")

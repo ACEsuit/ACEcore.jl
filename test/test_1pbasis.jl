@@ -1,6 +1,7 @@
 
-using ACEcore, BenchmarkTools
+using ACEcore, BenchmarkTools, Test
 using ACEcore:  PooledSparseProduct, test_evaluate, evaluate , evaluate!
+using Polynomials4ML.Testing: println_slim
 
 N1 = 10 
 N2 = 20 
@@ -23,7 +24,7 @@ BB = (B1, B2, B3)
 A1 = test_evaluate(basis, BB)
 A2 = evaluate(basis, BB)
 
-A1 ≈ A2 
+println_slim(@test A1 ≈ A2 )
 
 ## 
 
@@ -38,15 +39,6 @@ bA1 = sum(  test_evaluate(basis, ntuple(j -> bBB[j][i, :], length(bBB)))
 
 bA2 = zeros(length(spec))            
 bA2 = ACEcore.prod_and_pool!(bA2, basis, bBB)
-bA2_ = ACEcore.prod_and_pool3!(bA2, basis, bBB)
+# bA2_ = ACEcore.prod_and_pool3!(bA2, basis, bBB)
 
-bA1 ≈ bA2 ≈ bA2_
-
-##
-
-@btime evaluate!($A2, $basis, $BB)
-
-@btime ACEcore.prod_and_pool!($bA2, $basis, $bBB)
-
-@btime ACEcore.prod_and_pool3!($bA2, $basis, $bBB)
-
+println_slim(@test bA1 ≈ bA2 )

@@ -5,6 +5,8 @@ using ACEcore: SimpleProdBasis, SparseSymmetricProduct, release!,
                contract, contract_ed
 using Polynomials4ML.Testing: println_slim, print_tf
 
+using ACEbase.Testing: fdtest, dirfdtest
+
 ##
 
 M = 20 
@@ -27,13 +29,24 @@ println_slim(@test AA1 ≈ AA2)
 @info("Test gradient of SparseSymmetricProduct") 
 
 using ACEcore: contract, contract_ed
+using LinearAlgebra: dot
+
+A = randn(2*M+1)
+AA2 = real.(basis2(A))
+
 w = randn(Float64, length(spec))'
 v1 = contract(w, basis2, A)
 v2, g2 = contract_ed(w, basis2, A)
 v3 = w * AA2
 println_slim(@test v1 ≈ v2 ≈ v3)
 
-
+for ntest = 1:30 
+   U = randn(length(A))
+   F = t -> contract(w, basis2, A + t * U)
+   dF = t -> real(dot(contract_ed(w, basis2, A + t * U)[2], U))
+   print_tf(@test fdtest(F, dF, 0.0; verbose=false))
+end
+println() 
 
 ## 
 

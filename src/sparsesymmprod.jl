@@ -66,7 +66,7 @@ function evaluate(basis::SparseSymmetricProduct, A::AbstractMatrix{T}) where {T}
    AAdag = parent(AAdag_)
    AA_ = acquire!(basis.ppool_AA, (nX, length(basis.dag.projection)), T)
    AA = parent(AA_)
-   evaluate_AAdag!(AAdag, basis.dag, A)
+   evaluate_dag!(AAdag, basis.dag, A)
    @inbounds for j = 1:length(basis.dag.projection)
       jj = basis.dag.projection[j]
       for i = 1:nX

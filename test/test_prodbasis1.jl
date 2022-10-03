@@ -1,7 +1,8 @@
 
 using Test
 using ACEcore, BenchmarkTools
-using ACEcore: SimpleProdBasis, SparseSymmetricProduct, release! 
+using ACEcore: SimpleProdBasis, SparseSymmetricProduct, release!, 
+               contract, contract_ed
 using Polynomials4ML.Testing: println_slim, print_tf
 
 ##
@@ -23,6 +24,19 @@ println_slim(@test AA1 ≈ AA2)
 
 ## 
 
+@info("Test gradient of SparseSymmetricProduct") 
+
+using ACEcore: contract, contract_ed
+w = randn(Float64, length(spec))'
+v1 = contract(w, basis2, A)
+v2, g2 = contract_ed(w, basis2, A)
+v3 = w * AA2
+println_slim(@test v1 ≈ v2 ≈ v3)
+
+
+
+## 
+
 @info("Test consistency of serial and batched evaluation")
 
 nX = 32
@@ -34,3 +48,4 @@ end
 bAA2 = basis2(bA)
 
 println_slim(@test bAA1 ≈ bAA2)
+

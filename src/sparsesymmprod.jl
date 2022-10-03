@@ -30,7 +30,7 @@ function evaluate(basis::SparseSymmetricProduct, A::AbstractVector{T}) where {T}
    AAdag = parent(AAdag_)
    AA_ = acquire!(basis.pool_AA, length(basis.dag.projection), T)
    AA = parent(AA_)
-   evaluate_AAdag!(AAdag, basis.dag, A)
+   evaluate_dag!(AAdag, basis.dag, A)
    @inbounds for i = 1:length(basis.dag.projection)
       AA[i] = AAdag[basis.dag.projection[i]]
    end
@@ -38,7 +38,7 @@ function evaluate(basis::SparseSymmetricProduct, A::AbstractVector{T}) where {T}
 end
 
 
-function evaluate_AAdag!(AAdag, dag::AAEvalGraph, A)
+function evaluate_dag!(AAdag, dag::AAEvalGraph, A)
    nodes = dag.nodes
    @assert length(AAdag) >= dag.numstore
    @assert length(A) >= dag.num1
@@ -76,7 +76,7 @@ function evaluate(basis::SparseSymmetricProduct, A::AbstractMatrix{T}) where {T}
    return AA_
 end
 
-function evaluate_AAdag!(AAdag, dag::AAEvalGraph, A::AbstractMatrix{T}) where {T} 
+function evaluate_dag!(AAdag, dag::AAEvalGraph, A::AbstractMatrix{T}) where {T} 
    nX = size(A, 1)
    nodes = dag.nodes
    @assert size(AAdag, 2) >= length(dag)
@@ -113,6 +113,87 @@ function evaluate_AAdag!(AAdag, dag::AAEvalGraph, A::AbstractMatrix{T}) where {T
    end
 
    return AAdag
+end
+
+
+
+
+# ------------------------- linear model evaluation 
+
+
+function contract(w, basis::SparseSymmetricProduct, 
+                  A::AbstractVector{T}) where {T}
+   AA = evaluate(basis, A) 
+   out = w * AA 
+   release!(AA) 
+   return out 
+end
+
+function contract_ed(w, 
+                     basis::SparseSymmetricProduct, 
+                     A::AbstractVector{<: Number})
+   Δ = zeros(eltype(w), length(basis.dag))
+   @inbounds for i = 1:length(basis.dag.projection)
+      Δ[basis.dag.projection[i]] = w[i]
+   end
+   # Δ[basis.dag.projection] .= w[:]
+   val, pb = _rruleA_contract_dag(Δ', basis, A)
+   return val, pb(Δ)
+end
+
+# at the moment this only produces the pullback w.r.t. A 
+# but not w.r.t. the basis! 
+function _rruleA_contract_dag(w, basis::SparseSymmetricProduct, 
+                              A::AbstractVector{T}) where {T}
+   # forward pass    
+   AAdag_ = acquire!(basis.tmp_dag, length(basis.dag))
+   AAdag = parent(AAdag_)
+   evaluate_dag!(AAdag, basis.dag, A)
+   val = w * AAdag
+
+   T∂ = promote_type(T, eltype(w), eltype(AAdag))
+   ∂A = zeros(T∂, length(A))
+
+   # reverse pass is implemented in pullback_contract_dag
+   return val, Δ -> pullback_contract_dag!(∂A, Δ, basis.dag, AAdag)
+end
+
+# this is the simplest case for the pull-back, when the cotangent is just a 
+# scalar and there is only a single input. 
+# note that in executing this, we are chaning Δ! This means that the 
+# caller has to make sure it will not be used afterwards. 
+function pullback_contract_dag!(∂A, 
+                  Δ::AbstractVector{<: Number}, 
+                  dag::AAEvalGraph, AA)
+   nodes = dag.nodes
+   num1 = dag.num1 
+   @assert length(AA) >= length(dag)
+   @assert length(nodes) >= length(dag)
+   @assert length(Δ) >= length(dag)
+   @assert length(∂A) >= num1
+
+   TΔ = promote_type(eltype(Δ), eltype(AA))
+   Δ̃ = zeros(TΔ, length(dag))
+   @inbounds for i = 1:length(dag)
+      Δ̃[i] = Δ[i]
+   end
+   
+   # BACKWARD PASS
+   # --------------
+   for i = length(dag):-1:num1+1
+      wi = Δ̃[i]
+      n1, n2 = nodes[i]
+      Δ̃[n1] = muladd(wi, AA[n2], Δ̃[n1])
+      Δ̃[n2] = muladd(wi, AA[n1], Δ̃[n2])
+   end
+
+   # at this point the Δ̃[i] for i = 1:num1 will contain the 
+   # gradients w.r.t. A 
+   for i = 1:num1 
+      ∂A[i] = Δ̃[i]
+   end
+
+   return ∂A                                                         
 end
 
 

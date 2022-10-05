@@ -1,6 +1,7 @@
 
 using ACEcore, BenchmarkTools, Test
-using ACEcore:  PooledSparseProduct, test_evaluate, evaluate , evaluate!
+using ACEcore:  PooledSparseProduct, test_evaluate, evaluate , evaluate!, 
+                evalpool
 using Polynomials4ML.Testing: println_slim
 
 N1 = 10 
@@ -36,9 +37,34 @@ bBB = ( randn(nX, N1), randn(nX, N2), randn(nX, N3) )
 bA1 = sum(  test_evaluate(basis, ntuple(j -> bBB[j][i, :], length(bBB)))
             for i = 1:nX )
 
-
-bA2 = zeros(length(spec))            
-bA2 = ACEcore.prod_and_pool!(bA2, basis, bBB)
-# bA2_ = ACEcore.prod_and_pool3!(bA2, basis, bBB)
+bA2 = evalpool(basis, bBB)
 
 println_slim(@test bA1 ≈ bA2 )
+
+
+##
+
+using StaticArrays
+
+prodgrad = ACEcore._prod_grad
+
+for 
+
+b = rand(SVector{3, Float64})
+v, g = prodadj(b)
+
+v ≈ prod(b)
+g ≈ [ b[2] * b[3], b[1] * b[3], b[1] * b[2] ]
+
+b = rand(SVector{2, Float64})
+v, g = prodadj(b)
+v ≈ prod(b)
+g ≈ [ b[2], b[1] ]
+
+
+b = rand(SVector{1, Float64})
+v, g = prodadj(b)
+v ≈ b[1]
+g ≈ [ one(b[1]) ]
+
+##

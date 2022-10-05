@@ -27,39 +27,15 @@ Base.length(basis::PooledSparseProduct) = length(basis.spec)
 # ----------------------- evaluation interfaces 
 
 
-evaluate(basis::PooledSparseProduct, BB...) = 
-         evaluate!(nothing, basis, BB...)
+evaluate(basis::PooledSparseProduct, BB::Tuple) = 
+         evaluate!(nothing, basis, BB::Tuple)
+
+evalpool(basis::PooledSparseProduct, BB::Tuple) = 
+         evalpool!(nothing, basis, BB::Tuple)
 
 test_evaluate(basis::PooledSparseProduct, BB::Tuple) = 
        [ prod(BB[j][basis.spec[i][j]] for j = 1:length(BB)) 
             for i = 1:length(basis) ]
-
-# function evaluate(basis::PooledSparseProduct, cfg::UConfig)
-#    @assert length(cfg) > 0 "PooledSparseProduct can only be evaluated with non-empty configurations"
-#    # evaluate the first item "manually", then so we know the output types 
-#    # but then write directly into the allocated array to avoid additional 
-#    # allocations. 
-#    A = evaluate(basis, first(cfg))
-#    for (i, X) in enumerate(cfg)
-#       i == 1 && continue; 
-#       add_into_A!(A, basis, X)
-#    end
-#    return A 
-# end 
-
-# function evaluate!(A::AbstractVector, basis::PooledSparseProduct, X::AbstractState)
-#    fill!(A, zero(eltype(A)))
-#    add_into_A!(A, basis, X)
-#    return A
-# end
-
-# function evaluate!(A, basis::PooledSparseProduct, cfg::UConfig)
-#    fill!(A, zero(eltype(A)))
-#    for X in cfg 
-#       add_into_A!(A, basis, X)
-#    end
-#    return A
-# end
 
 
 # ----------------------- evaluation kernels 
@@ -110,7 +86,7 @@ function _write_A_code_pool(VA, NB)
    return prodBi, getA 
 end
 
-@generated function prod_and_pool!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
+@generated function evalpool!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
    prodBi, getA = _write_A_code_pool(VA, NB)
    quote
       # @assert length(BB) == $NB
@@ -156,3 +132,74 @@ end
 # end
 
 
+# -------------------- reverse mode gradient
+
+using StaticArrays
+
+@generated function _prod_grad(b::SVector{1, T}) where {T} 
+   quote
+      return b[1], SVector(one(T))
+   end
+end
+
+function _code_prod_grad(NB, T)
+   code = Expr[] 
+   push!(code, :(g2 = b[1]))
+   for i = 3:NB 
+      push!(code, Meta.parse("g$i = g$(i-1) * b[$(i-1)]"))
+   end
+   push!(code, Meta.parse("val = g$NB * b[$NB]"))
+   push!(code, Meta.parse("h = b[$NB]"))
+   for i = NB-1:-1:2
+      push!(code, Meta.parse("g$i *= h"))
+      push!(code, Meta.parse("h *= b[$i]"))
+   end
+   push!(code, :(g1 = h))
+   push!(code, Meta.parse(
+            "g = SVector(" * join([ "g$i" for i = 1:NB ], ", ") * ")" ))
+   push!(code, :( return val, g))
+end
+
+@generated function _prod_grad(b::SVector{NB, T}) where {NB, T} 
+   code = _code_prod_grad(NB, T)
+   quote
+      $(code...)
+   end
+end
+
+using Base.Cartesian: @nexprs
+
+
+function _rrule_evalpool(basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
+   A = evalpool(basis, BB)
+   return A, ∂A -> _pullback_evalpool(∂A, basis, BB)
+end
+
+
+function _pullback_evalpool(∂A, basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
+
+   nX = size(BB[1], 1)
+   @assert all(nX == size(BB[i], 1) for i = 1:nB)
+   @assert Δ == length(basis)
+   @assert length(BB) == NB 
+   
+   TA = promotetype(eltype.(BB)...)
+   A = zeros(TA, length(basis))
+   ∂BB = tuple(i -> zeros(TA, nX, size(BB[i], 2)), NB)
+
+   for (iA, ϕ) in enumerate(basis.spec)
+      ∂A_iA = ∂A[iA]
+      for j = 1:nX 
+         b = SVector( ntuple(i -> BB[i][j, ϕ[i]], NB) )
+         _, g = _prod_grad(b)
+
+         # write into ∂BB
+         # @nexprs NB i -> ∂BB[i][j, ϕ[i]] += ∂A_iA * g[i]
+         for i = 1:NB
+            ∂BB[i][j, ϕ[i]] += ∂A_iA * g[i]
+         end
+      end 
+   end
+
+   return A, ∂BB
+end

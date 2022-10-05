@@ -179,13 +179,12 @@ end
 function _pullback_evalpool(∂A, basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
 
    nX = size(BB[1], 1)
-   @assert all(nX == size(BB[i], 1) for i = 1:nB)
-   @assert Δ == length(basis)
+   @assert all(nX == size(BB[i], 1) for i = 1:NB)
+   @assert length(∂A) == length(basis)
    @assert length(BB) == NB 
    
-   TA = promotetype(eltype.(BB)...)
-   A = zeros(TA, length(basis))
-   ∂BB = tuple(i -> zeros(TA, nX, size(BB[i], 2)), NB)
+   TA = promote_type(eltype.(BB)...)
+   ∂BB = ntuple(i -> zeros(TA, size(BB[i])...), NB)
 
    for (iA, ϕ) in enumerate(basis.spec)
       ∂A_iA = ∂A[iA]
@@ -201,5 +200,5 @@ function _pullback_evalpool(∂A, basis::PooledSparseProduct{NB}, BB::Tuple) whe
       end 
    end
 
-   return A, ∂BB
+   return ∂BB
 end

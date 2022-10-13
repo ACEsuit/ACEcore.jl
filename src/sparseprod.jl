@@ -101,7 +101,7 @@ end
       @inbounds for (iA, ϕ) in enumerate(basis.spec)
          a *= 0 
          ϕ1 = ϕ[1]; ϕ2 = ϕ[2]; ϕ3 = ϕ[3]
-         @avx for j = 1:nX
+         @simd ivdep for j = 1:nX  # @avx or @simd ivdep 
             a += $(prodBi)
          end
          _A[iA] = a

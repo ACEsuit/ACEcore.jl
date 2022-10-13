@@ -29,9 +29,8 @@ A1 = zeros(length(spec))
 A2 = zeros(length(spec))
 
 A1 = serial_prod_and_pool!(A1, At, basis, bBB)
-A2 = ACEcore.prod_and_pool!(A2, basis, bBB)
-A1 ≈ A2
+ACEcore.evalpool!(A2, basis, bBB)
+@assert A1 ≈ A2
 
 @btime serial_prod_and_pool!($A1, $At, $basis, $bBB)
-@btime ACEcore.prod_and_pool!($A2, $basis, $bBB)
-
+@btime ACEcore.evalpool!($A2, $basis, $bBB)

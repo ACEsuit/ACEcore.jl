@@ -27,87 +27,70 @@ Base.length(basis::PooledSparseProduct) = length(basis.spec)
 # ----------------------- evaluation interfaces 
 
 
-evaluate(basis::PooledSparseProduct, BB::Tuple) = 
-         evaluate!(nothing, basis, BB::Tuple)
+function evaluate(basis::PooledSparseProduct, BB::Tuple) 
+   VT = mapreduce(eltype, promote_type, BB)
+   A = zeros(VT, length(basis))
+   evaluate!(A, basis, BB::Tuple)
+   return A 
+end
 
-evalpool(basis::PooledSparseProduct, BB::Tuple) = 
-         evalpool!(nothing, basis, BB::Tuple)
+function evalpool(basis::PooledSparseProduct, BB::Tuple)
+   VT = mapreduce(eltype, promote_type, BB)
+   A = zeros(VT, length(basis))
+   evalpool!(A, basis, BB::Tuple)
+   return A
+end
 
 test_evaluate(basis::PooledSparseProduct, BB::Tuple) = 
        [ prod(BB[j][basis.spec[i][j]] for j = 1:length(BB)) 
             for i = 1:length(basis) ]
 
+test_evalpool(basis::PooledSparseProduct, BB::Tuple) = 
+      sum( test_evaluate(basis, ntuple(i -> BB[i][j, :], length(BB)))
+         for j = 1:size(BB[1], 1) )            
 
 # ----------------------- evaluation kernels 
 
 import Base.Cartesian: @nexprs
 
-function _write_A_code(VA, NB)
-   prodBi_str = "BB[1][ϕ[1]]" 
-   for i in 2:NB
-      prodBi_str *= " * BB[$i][ϕ[$i]]"
-   end
-   prodBi = Meta.parse(prodBi_str)
-   if VA == Nothing 
-      getVT = "promote_type(" * prod("eltype(BB[$i]), " for i = 1:NB) * ")"
-      getA = Meta.parse("_A = zeros($(getVT), length(basis))")
-   else 
-      getA = :(_A = A)
-   end
-   return prodBi, getA 
+
+@inline function BB_prod(ϕ::NTuple{NB}, BB) where NB
+   reduce(Base.FastMath.mul_fast, ntuple(Val(NB)) do i
+      @inline 
+      @inbounds BB[i][ϕ[i]]
+   end)
 end
 
-@generated function evaluate!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
-   prodBi, getA = _write_A_code(VA, NB)
-   quote
-      @assert length(BB) == $NB
-      # allocate A if necessary or just name _A = A if A is a buffer 
-      $(getA)
-      # evaluate the 1p product basis functions and add/write into _A
-      for (iA, ϕ) in enumerate(basis.spec)
-         @inbounds _A[iA] += $prodBi 
+
+function evaluate!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
+   @assert length(BB) == NB
+   # evaluate the 1p product basis functions and add/write into _A
+   for (iA, ϕ) in enumerate(basis.spec)
+      @inbounds A[iA] += BB_prod(ϕ, BB)
+   end
+   return nothing 
+end
+
+@inline function BB_prod(ϕ::NTuple{NB}, BB, j) where NB
+   reduce(Base.FastMath.mul_fast, ntuple(Val(NB)) do i
+      @inline 
+      @inbounds BB[i][j, ϕ[i]]
+   end)
+end
+
+
+function evalpool!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
+   nX = size(BB[1], 1)
+   @assert all(B->size(B, 1) == nX, BB)
+
+   @inbounds for (iA, ϕ) in enumerate(basis.spec)
+      a = zero(eltype(A))
+      @simd ivdep for j = 1:nX
+         a += BB_prod(ϕ, BB, j)
       end
-      return _A
+      A[iA] = a
    end
-end
-
-function _write_A_code_pool(VA, NB)
-   prodBi_str = "BB[1][j, ϕ1]" 
-   for i in 2:NB
-      prodBi_str *= " * BB[$i][j, ϕ$i]"
-   end
-   prodBi = Meta.parse(prodBi_str)
-   if VA == Nothing 
-      getVT = "promote_type(" * prod("eltype(BB[$i]), " for i = 1:NB) * ")"
-      getA = Meta.parse("_A = zeros($(getVT), length(basis))")
-   else 
-      getA = :(_A = A)
-   end
-   return prodBi, getA 
-end
-
-@generated function evalpool!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
-   prodBi, getA = _write_A_code_pool(VA, NB)
-   quote
-      # @assert length(BB) == $NB
-      nX = size(BB[1], 1)
-      # @assert all( size(B, 1) == nX for B in BB )
-
-      # allocate A if necessary or just name _A = A if A is a buffer 
-      $(getA)
-      a = zero(eltype(_A))
-
-      # evaluate the 1p product basis functions and add/write into _A
-      @inbounds for (iA, ϕ) in enumerate(basis.spec)
-         a *= 0 
-         ϕ1 = ϕ[1]; ϕ2 = ϕ[2]; ϕ3 = ϕ[3]
-         @simd ivdep for j = 1:nX  # @avx or @simd ivdep 
-            a += $(prodBi)
-         end
-         _A[iA] = a
-      end
-      return _A
-   end
+   return nothing
 end
 
 # this code should never be used, we keep it just for testing 

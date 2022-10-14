@@ -35,12 +35,13 @@ nX = 64
 bBB = ( randn(nX, N1), randn(nX, N2), randn(nX, N3) )
 
 # using the naive evaluation code 
-bA1 = sum(  test_evaluate(basis, ntuple(j -> bBB[j][i, :], length(bBB)))
-            for i = 1:nX )
-
+bA1 = ACEcore.test_evalpool(basis, bBB)
 bA2 = evalpool(basis, bBB)
 
-println_slim(@test bA1 ≈ bA2 )
+bA3 = copy(bA2)
+ACEcore.evalpool!(bA3, basis, bBB)
+
+println_slim(@test bA1 ≈ bA2 ≈ bA3 )
 
 
 ##
@@ -53,6 +54,7 @@ prodgrad = ACEcore._prod_grad
 
 for N = 1:5 
    for ntest = 1:10
+      local v1 
       b = rand(SVector{3, Float64})
       v, g = prodgrad(b)
       v1 = prod(v) 
@@ -61,6 +63,7 @@ for N = 1:5
       print_tf(@test g1 ≈ g)
    end
 end
+println() 
 
 ##
 
@@ -68,6 +71,7 @@ end
 using LinearAlgebra: dot 
 
 for ntest = 1:30 
+   local bBB, bA2 
    bBB = ( randn(nX, N1), randn(nX, N2), randn(nX, N3) )
    bUU = ( randn(nX, N1), randn(nX, N2), randn(nX, N3) )
    _BB(t) = ( bBB[1] + t * bUU[1], bBB[2] + t * bUU[2], bBB[3] + t * bUU[3] )
@@ -81,3 +85,4 @@ for ntest = 1:30
    end
    print_tf(@test fdtest(F, dF, 0.0; verbose=false))
 end
+println() 

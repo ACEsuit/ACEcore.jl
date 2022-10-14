@@ -75,7 +75,7 @@ function evaluate!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
    # evaluate the 1p product basis functions and add/write into _A
    BB = constify(BB)
    @aliasscope begin # No store to A aliases any read from any B
-      @simd ivdep for (iA, ϕ) in enumerate(basis.spec)
+      for (iA, ϕ) in enumerate(basis.spec)
          @inbounds A[iA] += BB_prod(ϕ, BB)
       end
    end

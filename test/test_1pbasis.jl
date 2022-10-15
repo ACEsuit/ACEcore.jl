@@ -56,11 +56,9 @@ for N = 1:5
    for ntest = 1:10
       local v1 
       b = rand(SVector{3, Float64})
-      v, g = prodgrad(b)
-      v1 = prod(v) 
-      g1 = ForwardDiff.gradient(prod, b) 
-      print_tf(@test v1 ≈ v)
-      print_tf(@test g1 ≈ g)
+      g = prodgrad(b.data, Val(3))
+      g1 = ForwardDiff.gradient(prod, b)
+      print_tf(@test g1 ≈ SVector(g...))
    end
 end
 println() 

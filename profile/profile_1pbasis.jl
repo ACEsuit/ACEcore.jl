@@ -43,12 +43,19 @@ A4 = ACEcore.test_evalpool(basis, bBB)
 val, pb = ACEcore._rrule_evalpool(basis, bBB)
 ∂BB = pb(∂A)
 
+@info("timing pullback")
 @btime begin 
    val, pb = ACEcore._rrule_evalpool($basis, $bBB)
    ∂BB = pb($∂A)
 end
 
 ##
+
+@info("timing in-place pullback")
+@btime ACEcore._pullback_evalpool!($∂BB, $∂A, $basis, $bBB)
+
+##
+
 
 
 using Enzyme, LinearAlgebra

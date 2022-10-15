@@ -51,8 +51,6 @@ test_evalpool(basis::PooledSparseProduct, BB::Tuple) =
 
 # ----------------------- evaluation kernels 
 
-import Base.Cartesian: @nexprs
-
 
 @inline function BB_prod(ϕ::NTuple{NB}, BB) where NB
    reduce(Base.FastMath.mul_fast, ntuple(Val(NB)) do i
@@ -119,19 +117,16 @@ end
 
 using StaticArrays
 
-@generated function _prod_grad(b::SVector{1, T}) where {T} 
-   quote
-      return b[1], SVector(one(T))
-   end
+@inline function _prod_grad(b::SVector{1, T}) where {T} 
+   return b[1], SVector(one(T))
 end
 
-function _code_prod_grad(NB, T)
+function _code_prod_grad(NB)
    code = Expr[] 
    push!(code, :(g2 = b[1]))
    for i = 3:NB 
       push!(code, Meta.parse("g$i = g$(i-1) * b[$(i-1)]"))
    end
-   push!(code, Meta.parse("val = g$NB * b[$NB]"))
    push!(code, Meta.parse("h = b[$NB]"))
    for i = NB-1:-1:2
       push!(code, Meta.parse("g$i *= h"))
@@ -139,18 +134,18 @@ function _code_prod_grad(NB, T)
    end
    push!(code, :(g1 = h))
    push!(code, Meta.parse(
-            "g = SVector(" * join([ "g$i" for i = 1:NB ], ", ") * ")" ))
-   push!(code, :( return val, g))
+            "return (" * join([ "g$i" for i = 1:NB ], ", ") * ")" ))
 end
 
-@generated function _prod_grad(b::SVector{NB, T}) where {NB, T} 
-   code = _code_prod_grad(NB, T)
+@inline @generated function _prod_grad(b, ::Val{NB}) where {NB}
+   code = _code_prod_grad(NB)
    quote
-      $(code...)
+      @fastmath begin 
+         $(code...)
+      end
    end
 end
 
-using Base.Cartesian: @nexprs
 
 
 function _rrule_evalpool(basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
@@ -160,28 +155,35 @@ end
 
 
 function _pullback_evalpool(∂A, basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
-
    nX = size(BB[1], 1)
-   @assert all(nX == size(BB[i], 1) for i = 1:NB)
-   @assert length(∂A) == length(basis)
-   @assert length(BB) == NB 
-   
    TA = promote_type(eltype.(BB)...)
    ∂BB = ntuple(i -> zeros(TA, size(BB[i])...), NB)
+   _pullback_evalpool!(∂BB, ∂A, basis, BB)
+   return ∂BB
+end
 
-   for (iA, ϕ) in enumerate(basis.spec)
+
+function _pullback_evalpool!(∂BB, ∂A, basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
+   @assert NB == 3
+   nX = size(BB[1], 1)
+   @assert all(nX == size(BB[i], 1) for i = 1:NB)
+   @assert all(size.(BB) .== size.(∂BB))
+   @assert length(∂A) == length(basis)
+   @assert length(BB) == NB 
+   @assert length(∂BB) == NB 
+   
+   @inbounds for (iA, ϕ) in enumerate(basis.spec)
       ∂A_iA = ∂A[iA]
-      for j = 1:nX 
-         b = SVector( ntuple(i -> BB[i][j, ϕ[i]], NB) )
-         _, g = _prod_grad(b)
-
-         # write into ∂BB
-         # @nexprs NB i -> ∂BB[i][j, ϕ[i]] += ∂A_iA * g[i]
-         for i = 1:NB
-            ∂BB[i][j, ϕ[i]] += ∂A_iA * g[i]
+      @simd ivdep for j = 1:nX 
+         b = ntuple(Val(NB)) do i 
+            @inbounds BB[i][j, ϕ[i]] 
+         end 
+         g = _prod_grad(b, Val(NB))
+         for i = 1:NB 
+            ∂BB[i][j, ϕ[i]] = muladd(∂A_iA, g[i], ∂BB[i][j, ϕ[i]])
          end
       end 
    end
-
-   return ∂BB
+   return nothing 
 end
+

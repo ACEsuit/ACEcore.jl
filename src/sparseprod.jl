@@ -75,8 +75,9 @@ function evaluate!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
    @assert length(BB) == NB
    # evaluate the 1p product basis functions and add/write into _A
    BB = constify(BB)
+   spec = constify(basis.spec)
    @aliasscope begin # No store to A aliases any read from any B
-      for (iA, ϕ) in enumerate(basis.spec)
+      for (iA, ϕ) in enumerate(spec)
          @inbounds A[iA] += BB_prod(ϕ, BB)
       end
    end
@@ -95,9 +96,10 @@ function evalpool!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
    nX = size(BB[1], 1)
    @assert all(B->size(B, 1) == nX, BB)
    BB = constify(BB) # Assumes that no B aliases A
+   spec = constify(basis.spec)
 
    @aliasscope begin # No store to A aliases any read from any B
-      @inbounds for (iA, ϕ) in enumerate(basis.spec)
+      @inbounds for (iA, ϕ) in enumerate(spec)
          a = zero(eltype(A))
          @simd ivdep for j = 1:nX
             a += BB_prod(ϕ, BB, j)

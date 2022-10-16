@@ -58,5 +58,21 @@ end
 @btime (AA = $basis2($bA); release!(AA))
 @benchmark (AA = $basis2($bA); )
 
-display(@benchmark (AA = $basis2($bA); ))
+# display(@benchmark (AA = $basis2($bA); ))
 # end
+
+##
+
+@info("batched pullback")
+
+nX = 32
+bA = randn(nX, 2*M+1)
+bAA = zeros(nX, length(basis2.dag))
+
+@info(" ... evaluate_dag!")
+@btime ACEcore.evaluate_dag!($bAA, $(basis2.dag), $bA)
+
+@info(" ... pullback_evaluate_dag!")
+b∂A = zero(bA)
+b∂AA = zeros(nX, length(basis2.dag))
+@btime ACEcore.pullback_evaluate_dag!($b∂A, $b∂AA, $basis2, $bAA)

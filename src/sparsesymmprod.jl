@@ -86,29 +86,29 @@ function evaluate_dag!(AAdag, dag::AAEvalGraph, A::AbstractMatrix{T}) where {T}
    # Stage-1: copy the 1-particle basis into AAdag
    @inbounds begin 
       for i = 1:dag.num1
-         if (T <: Real)
-            @avx for j = 1:nX
-               AAdag[j, i] = A[j, i]
-            end
-         else 
-            for j = 1:nX
-               AAdag[j, i] = A[j, i]
-            end
+         # if (T <: Real)
+         @simd ivdep for j = 1:nX
+            AAdag[j, i] = A[j, i]
          end
+         # else 
+         #    for j = 1:nX
+         #       AAdag[j, i] = A[j, i]
+         #    end
+         # end
       end
 
    # Stage-2: go through the dag and store the intermediate results we need
       for i = (dag.num1+1):length(dag)
          n1, n2 = nodes[i]
-         if (T <: Real)
-            @avx for j = 1:nX 
-               AAdag[j, i] = AAdag[j, n1] * AAdag[j, n2]
-            end
-         else
-            for j = 1:nX 
-               AAdag[j, i] = AAdag[j, n1] * AAdag[j, n2]
-            end
+         # if (T <: Real)
+         @simd ivdep for j = 1:nX 
+            AAdag[j, i] = AAdag[j, n1] * AAdag[j, n2]
          end
+         # else
+         #    for j = 1:nX 
+         #       AAdag[j, i] = AAdag[j, n1] * AAdag[j, n2]
+         #    end
+         # end
       end
    end
 
@@ -122,8 +122,8 @@ end
 
 
 function contract(w, basis::SparseSymmetricProduct, 
-                  A::AbstractVector{T}) where {T}
-   AA = evaluate(basis, A) 
+                  A::AbstractArray{T}) where {T}
+   AA = evaluate(basis, A)
    out = w * AA 
    release!(AA) 
    return out 
@@ -155,27 +155,28 @@ function _rruleA_contract_dag(w, basis::SparseSymmetricProduct,
    ∂A = zeros(T∂, length(A))
 
    # reverse pass is implemented in pullback_contract_dag
-   return val, Δ -> pullback_contract_dag!(∂A, Δ, basis.dag, AAdag)
+   return val, Δ -> pullback_evaluate_dag!(∂A, Δ, basis, AAdag)
 end
 
 # this is the simplest case for the pull-back, when the cotangent is just a 
 # scalar and there is only a single input. 
 # note that in executing this, we are chaning Δ! This means that the 
 # caller has to make sure it will not be used afterwards. 
-function pullback_contract_dag!(∂A, 
-                  Δ::AbstractVector{<: Number}, 
-                  dag::AAEvalGraph, AA)
+function pullback_evaluate_dag!(∂A, 
+                  ∂AAdag::AbstractVector, 
+                  basis::SparseSymmetricProduct, AA::AbstractVector)
+   dag = basis.dag                   
    nodes = dag.nodes
    num1 = dag.num1 
    @assert length(AA) >= length(dag)
    @assert length(nodes) >= length(dag)
-   @assert length(Δ) >= length(dag)
+   @assert length(∂AAdag) >= length(dag)
    @assert length(∂A) >= num1
 
-   TΔ = promote_type(eltype(Δ), eltype(AA))
+   TΔ = promote_type(eltype(∂AAdag), eltype(AA))
    Δ̃ = zeros(TΔ, length(dag))
    @inbounds for i = 1:length(dag)
-      Δ̃[i] = Δ[i]
+      Δ̃[i] = ∂AAdag[i]
    end
    
    # BACKWARD PASS
@@ -196,4 +197,48 @@ function pullback_contract_dag!(∂A,
    return ∂A                                                         
 end
 
+
+# ------------------------- linear model evaluation - DAG based 
+
+
+function pullback_evaluate_dag!(
+                     ∂A::AbstractMatrix, 
+                     ∂AA::AbstractMatrix, 
+                     basis::SparseSymmetricProduct, 
+                     AA::AbstractMatrix, 
+                     nX = size(AA, 1))
+   dag = basis.dag                     
+   nodes = dag.nodes
+   num1 = dag.num1 
+   @assert size(AA, 2) >= length(dag)
+   @assert size(∂AA, 2) >= length(dag)
+   @assert size(∂A, 2) >= num1
+   @assert size(∂A, 1) >= nX 
+   @assert size(∂AA, 1) >= nX 
+   @assert size(AA, 1) >= nX 
+   @assert length(nodes) >= length(dag)
+
+   @inbounds begin 
+
+      for i = length(dag):-1:num1+1
+         n1, n2 = nodes[i]
+         @simd ivdep for j = 1:nX 
+            wi = ∂AA[j, i]
+            ∂AA[j, n1] = muladd(wi, AA[j, n2], ∂AA[j, n1])
+            ∂AA[j, n2] = muladd(wi, AA[j, n1], ∂AA[j, n2])
+         end
+      end
+
+      # at this point the Δ̃[i] for i = 1:num1 will contain the 
+      # gradients w.r.t. A 
+      for i = 1:num1 
+         @simd ivdep for j = 1:nX 
+            ∂A[j, i] = ∂AA[j, i]
+         end
+      end
+
+   end
+
+   return nothing 
+end
 

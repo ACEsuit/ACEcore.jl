@@ -5,32 +5,34 @@ using Combinatorics: combinations, partitions
 
 const BinDagNode = Tuple{Int, Int}
 
-# struct BinDagNode
-#    p1::Int 
-#    p2::Int 
-# end
-
-struct AAEvalGraph
+struct SparseSymmProdDAG{T}
    nodes::Vector{BinDagNode}
    num1::Int
    numstore::Int
    projection::Vector{Int}
+   # ---- temps
+   pool_AA::ArrayCache{T, 1}
+   bpool_AA::ArrayCache{T, 2}
 end
 
 # warning: this is not the length of the basis!!! 
-length(dag::AAEvalGraph) = length(dag.nodes)
+length(dag::SparseSymmProdDAG) = length(dag.nodes)
 
-# ==(dag1::AAEvalGraph, dag2::AAEvalGraph) = ACE1._allfieldsequal(dag1, dag2)
+# ==(dag1::SparseSymmProdDAG, dag2::SparseSymmProdDAG) = ACE1._allfieldsequal(dag1, dag2)
 
-AAEvalGraph() = AAEvalGraph(Vector{BinDagNode}(undef, 0), 0, 0)
+SparseSymmProdDAG(; T=Float64) = SparseSymmProdDAG{T}(Vector{BinDagNode}(undef, 0), 0, 0)
+
+SparseSymmProdDAG{T}(nodes, num1, numstore, projection)  where {T} = 
+               SparseSymmProdDAG{T}(nodes, num1, numstore, projection, 
+                                    ArrayCache{T, 1}(), ArrayCache{T, 2}())
 
 # # -------------- FIO
 
 # # TODO: maybe there is a cleverer way to do this, for now this is just
 # #       a quick hack to make sure it can be read without any ambiguity
 
-# write_dict(gr::AAEvalGraph{T, TI}) where {T <: Real, TI <: Integer} =
-#    Dict( "__id__" => "ACE1_AAEvalGraph",
+# write_dict(gr::SparseSymmProdDAG{T, TI}) where {T <: Real, TI <: Integer} =
+#    Dict( "__id__" => "ACE1_SparseSymmProdDAG",
 #          "T" => write_dict(T),
 #          "TI" => write_dict(TI),
 #          "nodes1" => [ n[1] for n in gr.nodes ],
@@ -40,12 +42,12 @@ AAEvalGraph() = AAEvalGraph(Vector{BinDagNode}(undef, 0), 0, 0)
 #       )
 
 
-# function read_dict(::Val{:ACE1_AAEvalGraph}, D::Dict)
+# function read_dict(::Val{:ACE1_SparseSymmProdDAG}, D::Dict)
 #    T = read_dict(D["T"])
 #    TI = read_dict(D["TI"])
 #    @assert T <: Real
 #    @assert TI <: Integer
-#    return AAEvalGraph{T, TI}(
+#    return SparseSymmProdDAG{T, TI}(
 #       collect(zip(D["nodes1"], D["nodes2"])),
 #       D["num1"],
 #       D["numstore"]
@@ -116,7 +118,7 @@ function _insert_partition!(nodes, specnew, specnew_dict,
 end
 
 """
-Construct the DAG used to evaluate an AA basis and returns it as a `AAEvalGraph`
+Construct the DAG used to evaluate an AA basis and returns it as a `SparseSymmProdDAG`
 
 Arguments
 * `spec` : AA basis specification, list of vectors of integers / indices pointing into A 
@@ -125,8 +127,10 @@ Kwargs:
 * `filter = _-> true` : 
 * `verbose = false` : print some information about the 
 """
-function AAEvalGraph(spec::AbstractVector; 
-                     filter = _->true, verbose = false)
+function SparseSymmProdDAG(spec::AbstractVector; 
+                           filter = _->true, 
+                           verbose = false, 
+                           T = Float64)
    @assert issorted(length.(spec))
    @assert all(issorted, spec)
    # we need to separate them into 1-p and many-p
@@ -167,7 +171,7 @@ function AAEvalGraph(spec::AbstractVector;
    # re-organise the dag layout to minimise numstore
    # nodesfinal, num1, numstore = _reorder_dag!(nodes)
 
-   return AAEvalGraph(nodes, num1, numstore, projection)
+   return SparseSymmProdDAG{T}(nodes, num1, numstore, projection)
 end
 
 
@@ -215,4 +219,5 @@ function _reorder_dag!(nodes::Vector{BinDagNode})
 
    return newnodes, num1, numstore
 end
+
 

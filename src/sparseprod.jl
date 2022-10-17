@@ -123,16 +123,23 @@ end
 
 function _code_prod_grad(NB)
    code = Expr[] 
+   # g[2] = b[1] 
    push!(code, :(g2 = b[1]))
    for i = 3:NB 
+      # g[i] = g[i-1] * b[i-1]
       push!(code, Meta.parse("g$i = g$(i-1) * b[$(i-1)]"))
    end
+   # h = b[N]
    push!(code, Meta.parse("h = b[$NB]"))
    for i = NB-1:-1:2
+      # g[i] *= h
       push!(code, Meta.parse("g$i *= h"))
+      # h *= b[i]
       push!(code, Meta.parse("h *= b[$i]"))
    end
+   # g[1] = h
    push!(code, :(g1 = h))
+   # return (g[1], g[2], ..., g[N])
    push!(code, Meta.parse(
             "return (" * join([ "g$i" for i = 1:NB ], ", ") * ")" ))
 end

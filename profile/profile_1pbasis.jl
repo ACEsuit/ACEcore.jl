@@ -2,6 +2,15 @@
 using ACEcore, BenchmarkTools
 using ACEcore:  PooledSparseProduct, test_evaluate, evaluate , evaluate!
 
+struct ZeroNoEffect end 
+Base.size(::ZeroNoEffect, ::Integer) = Inf
+Base.setindex!(A::ZeroNoEffect, args...) = nothing
+Base.getindex(A::ZeroNoEffect, args...) = Bool(0)
+
+
+##
+
+
 N1 = 10 
 N2 = 20 
 N3 = 50 
@@ -52,7 +61,16 @@ end
 ##
 
 @info("timing in-place pullback")
-@btime ACEcore._pullback_evalpool!($∂BB, $∂A, $basis, $bBB)
+display( @benchmark ACEcore._pullback_evalpool!($∂BB, $∂A, $basis, $bBB) )
+
+##
+
+# cost with ZeroNoEffect
+
+∂BB1 = (∂BB[1], ∂BB[2], ZeroNoEffect())
+ACEcore._pullback_evalpool!(∂BB1, ∂A, basis, bBB)
+display( @benchmark  ACEcore._pullback_evalpool!($∂BB1, $∂A, $basis, $bBB) )
+@btime  ACEcore._pullback_evalpool!($∂BB1, $∂A, $basis, $bBB)
 
 ##
 

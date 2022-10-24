@@ -10,6 +10,7 @@ include("symmprod_dag_kernels.jl")
 include("simpleprodbasis.jl")
 include("sparsesymmprod.jl")
 
+include("utils/utils.jl")
 include("testing.jl")
 
 end

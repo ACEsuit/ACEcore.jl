@@ -2,6 +2,8 @@
 
 # --------------- interface functions 
 
+(dag::SparseSymmProdDAG)(args...) = evaluate(dag, args...)
+
 function evaluate(dag::SparseSymmProdDAG, A::AbstractVector{T}) where {T}
    AA = acquire!(dag.pool_AA, length(dag), T)
    evaluate!(AA, dag, A)

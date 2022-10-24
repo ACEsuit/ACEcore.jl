@@ -171,10 +171,10 @@ end
 
 
 function _pullback_evalpool!(∂BB, ∂A, basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
-   @assert NB == 3
    nX = size(BB[1], 1)
-   @assert all(nX == size(BB[i], 1) for i = 1:NB)
-   @assert all(size.(BB) .== size.(∂BB))
+   @assert all(nX <= size(BB[i], 1) for i = 1:NB)
+   @assert all(nX <= size(∂BB[i], 1) for i = 1:NB)
+   @assert all(size(∂BB[i], 2) >= size(BB[i], 2) for i = 1:NB)
    @assert length(∂A) == length(basis)
    @assert length(BB) == NB 
    @assert length(∂BB) == NB 

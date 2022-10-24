@@ -1,8 +1,7 @@
 
 using Test
 using ACEcore, BenchmarkTools
-using ACEcore: SimpleProdBasis, SparseSymmetricProduct, release!, 
-               SparseSymmProd
+using ACEcore: SimpleProdBasis, release!, SparseSymmProd
 using Polynomials4ML.Testing: println_slim, print_tf
 
 using ACEbase.Testing: fdtest, dirfdtest

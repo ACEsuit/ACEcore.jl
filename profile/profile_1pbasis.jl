@@ -46,6 +46,24 @@ A4 = ACEcore.test_evalpool(basis, bBB)
 @btime serial_evalpool!($A1, $basis, $bBB)
 @btime ACEcore.evalpool!($A2, $basis, $bBB)
 
+##
+
+@profview let A2=A2, basis=basis, bBB=bBB
+   for _=1:3_000_000
+      ACEcore.evalpool!(A2, basis, bBB)
+   end
+end
+
+##
+
+@profview let A2=A2, basis=basis, bBB=bBB
+   for _=1:3_000_000
+      ACEcore.evalpool(basis, bBB)
+   end
+end
+
+
+
 ## 
 
 ∂A = randn(size(A1))

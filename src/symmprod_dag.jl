@@ -221,3 +221,22 @@ function _reorder_dag!(nodes::Vector{BinDagNode})
 end
 
 
+
+# ------------------------------------------------------------------
+# reconstruct the specification without the tree ... 
+
+
+function reconstruct_spec(dag::SparseSymmProdDAG)
+   spec = Vector{Vector{Int}}[]
+   for i = 1:length(dag.nodes)
+      n = dag.nodes[i]
+      if n[2] == 0
+         push!(spec, [n[1]])
+      else
+         push!(spec, sort(vcat(spec[n[1]], spec[n[2]])))
+      end
+   end
+   return spec
+end
+
+

@@ -3,6 +3,7 @@
 
 struct LinearTransform{TT}
    T::TT
+   # ------------ temporaries 
 end
 
 
@@ -16,3 +17,6 @@ function evaluate!(BB, lt::LinearTransform, AA::AbstractMatrix)
    mul!(transpose(BB), lt.T, transpose(AA))
    return nothing 
 end
+
+
+function 

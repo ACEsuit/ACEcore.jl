@@ -2,7 +2,7 @@
 
 struct PooledSparseProduct{NB}
    spec::Vector{NTuple{NB, Int}}
-   # ---- temporaries 
+   # ---- temporaries & caches 
 end
 
 function PooledSparseProduct()
@@ -92,7 +92,7 @@ end
 end
 
 
-function evalpool!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
+function evalpool!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
    nX = size(BB[1], 1)
    @assert all(B->size(B, 1) == nX, BB)
    BB = constify(BB) # Assumes that no B aliases A
@@ -107,6 +107,54 @@ function evalpool!(A::VA, basis::PooledSparseProduct{NB}, BB) where {NB, VA}
          A[iA] = a
       end
    end
+   return nothing
+end
+
+
+function evalpool!(A, basis::PooledSparseProduct{NB}, BB, 
+                   target::AbstractVector{<: Integer}) where {NB}
+   nX = size(BB[1], 1)
+   nA = size(A, 1)
+   @assert minimum(target) > 0 
+   @assert maximum(target) <= nA 
+   @assert all(B->size(B, 1) == nX, BB)
+   BB = constify(BB) # Assumes that no B aliases A
+   spec = constify(basis.spec)
+
+   Aloc = zeros(eltype(A), nA)
+
+   @inbounds for (iA, ϕ) in enumerate(spec)
+      fill!(Aloc, 0)
+      @simd ivdep for j = 1:nX
+         t = target[j] 
+         Aloc[t] += BB_prod(ϕ, BB, j)
+      end
+      @simd ivdep for t = 1:nA 
+         A[t, iA] = Aloc[t]
+      end
+   end
+   return nothing
+end
+
+
+function evalpool!(A::VA, basis::PooledSparseProduct{2}, BB) where {VA}
+   nX = size(BB[1], 1)
+   @assert size(BB[2], 1) == nX 
+   @assert length(A) == length(basis)
+   BB = constify(BB) # Assumes that no B aliases A
+   spec = constify(basis.spec)
+   BB1 = BB[1] 
+   BB2 = BB[2] 
+
+   @inbounds for (iA, ϕ) in enumerate(spec)
+      a = zero(eltype(A))
+      ϕ1 = ϕ[1]; ϕ2 = ϕ[2]
+      @simd ivdep for j = 1:nX
+         a = muladd(BB1[j, ϕ1], BB2[j, ϕ2], a)
+      end
+      A[iA] = a
+   end
+
    return nothing
 end
 
@@ -213,3 +261,65 @@ function _pullback_evalpool!(∂BB, ∂A, basis::PooledSparseProduct{NB}, BB::Tu
    return nothing 
 end
 
+# TODO: interestingly the generic code above does not perform well 
+#       in a production setting and we may want to return to 
+#       a cruder code generation strategy. This specialized code 
+#       confirms this. 
+
+function _pullback_evalpool!(∂BB, ∂A, basis::PooledSparseProduct{2}, BB::Tuple)
+   nX = size(BB[1], 1)
+   NB = 2 
+   @assert length(∂A) == length(basis)
+   @assert length(BB) == length(∂BB) == 2
+   @assert all(nX <= size(BB[i], 1) for i = 1:NB)
+   @assert all(nX <= size(∂BB[i], 1) for i = 1:NB)
+   @assert all(size(∂BB[i], 2) >= size(BB[i], 2) for i = 1:NB)
+   
+   @inbounds for (iA, ϕ) in enumerate(basis.spec)
+      ∂A_iA = ∂A[iA]
+      @simd ivdep for j = 1:nX 
+         ϕ1 = ϕ[1]
+         ϕ2 = ϕ[2]
+         b1 = BB[1][j, ϕ1]
+         b2 = BB[2][j, ϕ2]
+         ∂BB[1][j, ϕ1] = muladd(∂A_iA, b2, ∂BB[1][j, ϕ1])
+         ∂BB[2][j, ϕ2] = muladd(∂A_iA, b1, ∂BB[2][j, ϕ2])
+      end 
+   end
+   return nothing 
+end
+
+
+
+function _pullback_evalpool!(∂BB, ∂A, basis::PooledSparseProduct{NB}, 
+                             BB::Tuple, target::AbstractVector{<: Integer}) where {NB}
+   nX = size(BB[1], 1)
+   nT = size(∂A, 1)
+   mint, maxt = extrema(target)
+   @assert 0 < mint <= maxt <= nT
+   @assert all(nX <= size(BB[i], 1) for i = 1:NB)
+   @assert all(nX <= size(∂BB[i], 1) for i = 1:NB)
+   @assert all(size(∂BB[i], 2) >= size(BB[i], 2) for i = 1:NB)
+   @assert size(∂A, 2) == length(basis)
+   @assert length(BB) == NB 
+   @assert length(∂BB) == NB 
+
+   # ∂A_loc = zeros(eltype(∂A), nT)
+
+   @inbounds for (iA, ϕ) in enumerate(basis.spec)
+      # @simd ivdep for t = 1:nT 
+      #    ∂A_loc[t] = ∂A[t, iA]
+      # end
+      @simd ivdep for j = 1:nX 
+         ∂A_iA = ∂A[target[j], iA] # ∂A_loc[target[j] ] 
+         b = ntuple(Val(NB)) do i 
+            @inbounds BB[i][j, ϕ[i]] 
+         end 
+         g = _prod_grad(b, Val(NB))
+         for i = 1:NB 
+            ∂BB[i][j, ϕ[i]] = muladd(∂A_iA, g[i], ∂BB[i][j, ϕ[i]])
+         end
+      end 
+   end
+   return nothing 
+end

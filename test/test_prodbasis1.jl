@@ -89,17 +89,17 @@ println()
 
 ##
 
-nX = 32
-bA = randn(nX, 2*M+1)
-bAA = zeros(nX, length(basis2.dag))
-ACEcore.evaluate!(bAA, basis2.dag, bA)
-b∂A = zero(bA)
-b∂AA = randn(nX, length(basis2.dag))
-ACEcore.pullback_arg!(b∂A, copy(b∂AA), basis2.dag, bAA)
+# nX = 32
+# bA = randn(nX, 2*M+1)
+# bAA = zeros(nX, length(basis2.dag))
+# ACEcore.evaluate!(bAA, basis2.dag, bA)
+# b∂A = zero(bA)
+# b∂AA = randn(nX, length(basis2.dag))
+# ACEcore.pullback_arg!(b∂A, copy(b∂AA), basis2.dag, bAA)
 
 
-@profview let b∂A=b∂A, b∂AA=b∂AA, dag = basis2.dag, bAA = bAA
-   for n = 1:100_000
-      ACEcore.pullback_arg!(b∂A, b∂AA, basis2.dag, bAA)
-   end
-end
+# @profview let b∂A=b∂A, b∂AA=b∂AA, dag = basis2.dag, bAA = bAA
+#    for n = 1:100_000
+#       ACEcore.pullback_arg!(b∂A, b∂AA, basis2.dag, bAA)
+#    end
+# end

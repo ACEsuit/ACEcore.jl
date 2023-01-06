@@ -41,6 +41,7 @@ function evalpool(basis::PooledSparseProduct, BB::Tuple)
    return A
 end
 
+
 test_evaluate(basis::PooledSparseProduct, BB::Tuple) = 
        [ prod(BB[j][basis.spec[i][j]] for j = 1:length(BB)) 
             for i = 1:length(basis) ]
@@ -111,7 +112,7 @@ function evalpool!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
 end
 
 
-function evalpool!(A, basis::PooledSparseProduct{NB}, BB, 
+function evalpool_batch!(A, basis::PooledSparseProduct{NB}, BB, 
                    target::AbstractVector{<: Integer}) where {NB}
    nX = size(BB[1], 1)
    nA = size(A, 1)
@@ -139,7 +140,7 @@ end
 
 function evalpool!(A::VA, basis::PooledSparseProduct{2}, BB) where {VA}
    nX = size(BB[1], 1)
-   @assert size(BB[2], 1) == nX 
+   @assert size(BB[2], 1) >= nX 
    @assert length(A) == length(basis)
    BB = constify(BB) # Assumes that no B aliases A
    spec = constify(basis.spec)

@@ -116,6 +116,53 @@ end
 
 
 
+function evaluate_dot(dag::SparseSymmProdDAG, A::AbstractMatrix{T}, c, freal
+                       ) where {T}
+   nX = size(A, 1)
+   AA = acquire!(dag.bpool_AA, (nX, length(dag)), T)
+   vals = zeros(freal(T), nX)
+   evaluate_dot!(vals, AA, dag, A, c, freal)
+   return vals, AA
+end
+
+
+function evaluate_dot!(vals, AA, dag::SparseSymmProdDAG, A::AbstractMatrix{T}, 
+                       c::AbstractVector, freal) where {T}
+   nX = size(A, 1)
+   nodes = dag.nodes
+   @assert size(AA, 2) >= length(dag)
+   @assert size(AA, 1) >= size(A, 1)
+   @assert size(A, 2) >= dag.num1
+
+   # Stage-1: copy the 1-particle basis into AA
+   @inbounds begin 
+
+      for i = 1:dag.num1
+         # if (T <: Real)
+         ci = c[i]
+         @simd ivdep for j = 1:nX
+            AA[j, i] = aa = A[j, i]
+            vals[j] = muladd(freal(aa), ci, vals[j])
+         end
+      end
+
+   # Stage-2: go through the dag and store the intermediate results we need
+      for i = (dag.num1+1):length(dag)
+         n1, n2 = nodes[i]
+         ci = c[i]
+         # if (T <: Real)
+         @simd ivdep for j = 1:nX 
+            @fastmath AA[j, i] = aa = AA[j, n1] * AA[j, n2]
+            @fastmath vals[j] += freal(aa) * ci
+         end
+      end
+   end # inbounds 
+
+   return nothing 
+end
+
+
+
 function pullback_arg!(∂A::AbstractMatrix, 
                        ∂AA::AbstractMatrix, 
                        dag::SparseSymmProdDAG,

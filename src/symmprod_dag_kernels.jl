@@ -151,8 +151,9 @@ function evaluate_dot!(vals, AA, dag::SparseSymmProdDAG, A::AbstractMatrix{T},
          n1, n2 = nodes[i]
          ci = c[i]
          # if (T <: Real)
-         @simd ivdep for j = 1:nX 
-            @fastmath AA[j, i] = aa = AA[j, n1] * AA[j, n2]
+         @simd ivdep for j = 1:nX
+            aa = AA[j, n1] * AA[j, n2] 
+            @fastmath AA[j, i] = aa 
             @fastmath vals[j] += freal(aa) * ci
          end
       end

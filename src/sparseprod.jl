@@ -93,6 +93,7 @@ end
 end
 
 
+# BB::tuple of matrices 
 function evalpool!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
    nX = size(BB[1], 1)
    @assert all(B->size(B, 1) == nX, BB)
@@ -112,26 +113,48 @@ function evalpool!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
 end
 
 
+struct LinearBatch
+   groups::Vector{Int}
+end
+
+function linearbatch(target::AbstractVector{<: Integer})
+   @assert issorted(target)
+   @assert minimum(target) > 0 
+   ngroups = target[end] 
+   groups = zeros(Int, ngroups+1)
+   gidx = 1 
+   i = 1
+   groups[1] = 1 
+   for gidx = 1:ngroups 
+      while (i <= length(target)) && (target[i] == gidx)
+         i += 1
+      end
+      groups[gidx+1] = i
+   end
+   return LinearBatch(groups)
+end
+
+evalpool_batch!(A, basis::PooledSparseProduct, BB, 
+                   target::AbstractVector{<: Integer}) = 
+    evalpool_batch!(A, basis, BB, linearbatch(target))
+
 function evalpool_batch!(A, basis::PooledSparseProduct{NB}, BB, 
-                   target::AbstractVector{<: Integer}) where {NB}
+                         target::LinearBatch) where {NB}
    nX = size(BB[1], 1)
    nA = size(A, 1)
-   @assert minimum(target) > 0 
-   @assert maximum(target) <= nA 
+   @assert length(target.groups)-1 <= nA 
    @assert all(B->size(B, 1) == nX, BB)
    BB = constify(BB) # Assumes that no B aliases A
    spec = constify(basis.spec)
 
-   Aloc = zeros(eltype(A), nA)
-
    @inbounds for (iA, ϕ) in enumerate(spec)
       fill!(Aloc, 0)
-      @simd ivdep for j = 1:nX
-         t = target[j] 
-         Aloc[t] += BB_prod(ϕ, BB, j)
-      end
-      @simd ivdep for t = 1:nA 
-         A[t, iA] = Aloc[t]
+      for t = 1:length(target.groups)-1
+         a_t = zero(eltype(A))
+         @simd ivdep for j = target.groups[t]:target.groups[t+1]-1
+            a_t += BB_prod(ϕ, BB, j)
+         end
+         A[t, iA] = a_t 
       end
    end
    return nothing

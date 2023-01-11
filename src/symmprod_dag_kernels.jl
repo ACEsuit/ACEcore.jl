@@ -84,6 +84,7 @@ end
 
 # ------------------------- batched kernels 
 
+using LoopVectorization
 
 function evaluate!(AA, dag::SparseSymmProdDAG, A::AbstractMatrix{T}) where {T} 
    nX = size(A, 1)
@@ -121,7 +122,7 @@ function evaluate_dot(dag::SparseSymmProdDAG, A::AbstractMatrix{T}, c, freal
    nX = size(A, 1)
    AA = acquire!(dag.bpool_AA, (nX, length(dag)), T)
    vals = zeros(freal(T), nX)
-   evaluate_dot!(vals, AA, dag, A, c, freal)
+   evaluate_dot!(vals, parent(AA), dag, A, c, freal)
    return vals, AA
 end
 
@@ -152,8 +153,8 @@ function evaluate_dot!(vals, AA, dag::SparseSymmProdDAG, A::AbstractMatrix{T},
          ci = c[i]
          # if (T <: Real)
          @simd ivdep for j = 1:nX
-            aa = AA[j, n1] * AA[j, n2] 
-            @fastmath AA[j, i] = aa 
+            @fastmath aa = AA[j, n1] * AA[j, n2] 
+            AA[j, i] = aa 
             @fastmath vals[j] += freal(aa) * ci
          end
       end

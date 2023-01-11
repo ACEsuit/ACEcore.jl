@@ -148,7 +148,6 @@ function evalpool_batch!(A, basis::PooledSparseProduct{NB}, BB,
    spec = constify(basis.spec)
 
    @inbounds for (iA, ϕ) in enumerate(spec)
-      fill!(Aloc, 0)
       for t = 1:length(target.groups)-1
          a_t = zero(eltype(A))
          @simd ivdep for j = target.groups[t]:target.groups[t+1]-1

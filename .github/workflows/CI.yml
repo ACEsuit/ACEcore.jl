@@ -34,7 +34,7 @@ jobs:
       - run: |
           julia -e '
             using Pkg; 
-            Pkg.pkg"registry add https://github.com/JuliaMolSim/MolSim.git"'
+            Pkg.pkg"registry add https://github.com/ACEsuit/ACEregistry"'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
   docs:
@@ -50,7 +50,7 @@ jobs:
       - run: |
           julia -e '
             using Pkg; 
-            Pkg.pkg"registry add https://github.com/JuliaMolSim/MolSim.git"'
+            Pkg.pkg"registry add https://github.com/ACEsuit/ACEregistry"'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:

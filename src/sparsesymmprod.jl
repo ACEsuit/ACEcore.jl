@@ -2,7 +2,7 @@
 using LoopVectorization
 
 struct SparseSymmProd{T} 
-   dag::SparseSymmProdDAG
+   dag::SparseSymmProdDAG{T} 
    # replace projection with linear transform?
    # proj::LinearTransform{SparseMatrixCSC{Bool, Int64}}
    proj::Vector{Int}

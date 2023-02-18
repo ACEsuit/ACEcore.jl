@@ -94,9 +94,9 @@ end
 
 
 # BB::tuple of matrices 
-function evalpool!(A, basis::PooledSparseProduct{NB}, BB) where {NB}
-   nX = size(BB[1], 1)
-   @assert all(B->size(B, 1) == nX, BB)
+function evalpool!(A, basis::PooledSparseProduct{NB}, BB, 
+                   nX = size(BB[1], 1)) where {NB}
+   @assert all(B->size(B, 1) >= nX, BB)
    BB = constify(BB) # Assumes that no B aliases A
    spec = constify(basis.spec)
 

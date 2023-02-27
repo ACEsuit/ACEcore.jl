@@ -20,18 +20,25 @@ end
 
 # --------------- old evaluation 
 
-function evaluate!(AA, dag::SparseSymmProdDAG, A)
+function evaluate!(AA, dag::SparseSymmProdDAG, A::AbstractVector)
    nodes = dag.nodes
+   has0 = dag.has0
    @assert length(AA) >= dag.numstore
    @assert length(A) >= dag.num1
 
+   if dag.has0
+      AA[1] = 1.0 
+   end 
+
    # Stage-1: copy the 1-particle basis into AA
-   @inbounds for i = 1:dag.num1
-      AA[i] = A[i]
+   # note this entirely ignores the spec / nodes. It is implicit in the 
+   # definitions and orderings
+   @inbounds for i = 1:(1+dag.num1)
+      AA[has0+i] = A[i]
    end
 
    # Stage-2: go through the dag and store the intermediate results we need
-   @inbounds for i = (dag.num1+1):length(dag)
+   @inbounds for i = (dag.num1+has0+1):length(dag)
       n1, n2 = nodes[i]
       AA[i] = AA[n1] * AA[n2]
    end
@@ -51,6 +58,7 @@ end
 function pullback_arg!(∂A, ∂AA::AbstractVector, 
                        dag::SparseSymmProdDAG, AA::AbstractVector)
    nodes = dag.nodes
+   has0 = dag.has0
    num1 = dag.num1 
    @assert length(AA) >= length(dag)
    @assert length(nodes) >= length(dag)
@@ -60,12 +68,12 @@ function pullback_arg!(∂A, ∂AA::AbstractVector,
    TΔ = promote_type(eltype(∂AA), eltype(AA))
    Δ̃ = zeros(TΔ, length(dag))
    @inbounds for i = 1:length(dag)
-   Δ̃[i] = ∂AA[i]
+      Δ̃[i] = ∂AA[i]
    end
 
    # BACKWARD PASS
    # --------------
-   for i = length(dag):-1:num1+1
+   for i = length(dag):-1:num1+1+has0
       wi = Δ̃[i]
       n1, n2 = nodes[i]
       Δ̃[n1] = muladd(wi, AA[n2], Δ̃[n1])
@@ -74,7 +82,7 @@ function pullback_arg!(∂A, ∂AA::AbstractVector,
 
    # at this point the Δ̃[i] for i = 1:num1 will contain the 
    # gradients w.r.t. A 
-   for i = 1:num1 
+   for i = (has0+1):(has0+num1) 
       ∂A[i] = Δ̃[i]
    end
 

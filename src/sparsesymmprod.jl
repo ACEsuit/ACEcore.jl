@@ -69,3 +69,40 @@ function _project!(BB, proj::Vector{<: Integer}, AA::AbstractMatrix)
 end
 
 
+# -------------- Chainrules integration 
+
+function rrule(::typeof(evaluate), basis::SparseSymmProd, A::AbstractVector)
+   AAdag = evaluate(basis.dag, A)
+   AA = AAdag[basis.proj]
+
+   function evaluate_pullback(Δ)
+      Δdag = zeros(eltype(Δ), length(AAdag))
+      Δdag[basis.proj] .= Δ
+      T = promote_type(eltype(Δdag), eltype(AAdag))
+      ΔA = zeros(T, length(A))
+      pullback_arg!(ΔA, Δdag, basis.dag, AAdag)
+      return NoTangent(), NoTangent(), ΔA
+   end
+   return AA, evaluate_pullback
+end
+
+# -------------- Lux integration 
+
+struct SparseSymmProdLayer{T} <: AbstractExplicitLayer
+   basis::SparseSymmProd{T}
+end
+
+function lux(basis::SparseSymmProd) 
+   return SparseSymmProdLayer(basis)
+end
+
+initialparameters(rng::AbstractRNG, l::SparseSymmProdLayer) = NamedTuple() 
+
+initialstates(rng::AbstractRNG, l::SparseSymmProdLayer) = NamedTuple()
+
+(l::SparseSymmProdLayer)(A, ps, st) = evaluate(l.basis, A), st 
+
+
+
+
+

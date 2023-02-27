@@ -38,7 +38,8 @@ end
 
 function evaluate!(AA, basis::SimpleProdBasis, A::AbstractVector)
    for i = 1:length(basis) 
-      AA[i] = prod( A[basis.spec[i, a]]  for a = 1:basis.orders[i] )
+      AA[i] = prod( A[basis.spec[i, a]]  for a = 1:basis.orders[i]; 
+                   init = one(eltype(AA)) )
    end
    return AA 
 end

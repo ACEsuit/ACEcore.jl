@@ -7,6 +7,7 @@ const BinDagNode = Tuple{Int, Int}
 
 struct SparseSymmProdDAG{T}
    nodes::Vector{BinDagNode}
+   has0::Bool
    num1::Int
    numstore::Int
    projection::Vector{Int}
@@ -22,8 +23,8 @@ length(dag::SparseSymmProdDAG) = length(dag.nodes)
 
 SparseSymmProdDAG(; T=Float64) = SparseSymmProdDAG{T}(Vector{BinDagNode}(undef, 0), 0, 0)
 
-SparseSymmProdDAG{T}(nodes, num1, numstore, projection)  where {T} = 
-               SparseSymmProdDAG{T}(nodes, num1, numstore, projection, 
+SparseSymmProdDAG{T}(nodes, has0, num1, numstore, projection)  where {T} = 
+               SparseSymmProdDAG{T}(nodes, has0, num1, numstore, projection, 
                                     ArrayCache{T, 1}(), ArrayCache{T, 2}())
 
 # # -------------- FIO
@@ -74,8 +75,9 @@ end
 
 
 function _find_partition(kk, specnew, specnew_dict)
+   has0 = (length(specnew[1]) == 0)
    worstp = _get_ns([ [k] for k in kk ], specnew, specnew_dict)
-   @assert worstp == kk
+   @assert worstp == has0 .+ kk
    bestp = worstp
    bestscore = _score_partition(bestp)
 
@@ -103,8 +105,6 @@ function _insert_partition!(nodes, specnew, specnew_dict,
       specnew_dict[kk] = length(specnew)
       return 0
    else
-      # @show kk, p
-      # @infiltrate
       # reduce the partition by pushing a new node
       push!(nodes, BinDagNode((p[1], p[2])))
       kk1 = sort(vcat(specnew[p[1]], specnew[p[2]]))
@@ -133,9 +133,10 @@ function SparseSymmProdDAG(spec::AbstractVector;
                            T = Float64)
    @assert issorted(length.(spec))
    @assert all(issorted, spec)
-   # we need to separate them into 1-p and many-p
+   # we need to separate them into 0-corr, 1-corr and N-corr
+   has0 = (length(spec[1]) == 0)
    spec1 = spec[ length.(spec) .== 1 ]
-   IN = (length(spec1)+1):length(spec)
+   IN = (length(spec1)+1+has0):length(spec)
    specN = spec[IN]
 
    # start assembling the dag
@@ -145,10 +146,17 @@ function SparseSymmProdDAG(spec::AbstractVector;
    specnew_dict = Dict{Vector{Int}, Int}()
    sizehint!(specnew, length(spec))
 
+   # add the zero-correlation into the dag 
+   if has0
+      push!(nodes, BinDagNode((0, 0)))
+      push!(specnew, Int[])
+      specnew_dict[ Int[] ] = length(specnew)
+   end
+
    # add the full 1-particle basis (N=1) into the dag
-   num1 = maximum( maximum(vv) for vv in spec )
+   num1 = maximum( maximum(vv; init=0) for vv in spec )
    for i = 1:num1
-      push!(nodes, BinDagNode((i, 0)))
+      push!(nodes, BinDagNode((i+has0, 0)))
       push!(specnew, [i])
       specnew_dict[ [i] ] = length(specnew)
    end
@@ -171,7 +179,7 @@ function SparseSymmProdDAG(spec::AbstractVector;
    # re-organise the dag layout to minimise numstore
    # nodesfinal, num1, numstore = _reorder_dag!(nodes)
 
-   return SparseSymmProdDAG{T}(nodes, num1, numstore, projection)
+   return SparseSymmProdDAG{T}(nodes, has0, num1, numstore, projection)
 end
 
 
@@ -227,13 +235,19 @@ end
 
 
 function reconstruct_spec(dag::SparseSymmProdDAG)
-   spec = Vector{Vector{Int}}[]
+   spec = Vector{Int}[]
+   has0 = dag.has0
    for i = 1:length(dag.nodes)
       n = dag.nodes[i]
-      if n[2] == 0
-         push!(spec, [n[1]])
+      if n[1] == n[2] == 0 
+         bb = Int[]
+         push!(spec, bb)
+      elseif n[2] == 0
+         bb = Int[ n[1] - has0, ]
+         push!(spec, bb)
       else
-         push!(spec, sort(vcat(spec[n[1]], spec[n[2]])))
+         bb = sort(vcat(spec[n[1]], spec[n[2]]))
+         push!(spec, bb)
       end
    end
    return spec

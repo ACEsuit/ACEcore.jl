@@ -15,16 +15,36 @@ A = randn(ComplexF64, 2*M+1)
 ## 
 
 @info("Test consistency of SparseSymmetricProduct with SimpleProdBasis")
-basis1 = SimpleProdBasis(spec)
 AA1 = basis1(A)
+basis1 = SimpleProdBasis(spec)
 
-# basis2 = SparseSymmetricProduct(spec; T = ComplexF64)
 basis2 = SparseSymmProd(spec; T = ComplexF64)
 AA2 = basis2(A)
 
+spec_ = ACEcore.reconstruct_spec(basis2.dag)[basis2.proj]
+println_slim(@test spec_ == spec)
 println_slim(@test AA1 ≈ AA2)
 
-# ##   TODO: MOVE TO A LINEAR MODEL PROTOTYPE IMPLEMENTATION 
+##
+
+@info("Test with a constant")
+spec_c = [ [Int[],]; spec]
+basis1_c = SimpleProdBasis(spec_c)
+basis2_c = SparseSymmProd(spec_c; T = ComplexF64)
+
+spec_c_ = ACEcore.reconstruct_spec(basis2_c.dag)[basis2_c.proj]
+println_slim(@test spec_c_ == spec_c)
+
+AA1_c = basis1_c(A)
+println_slim(@test AA1 ≈ AA1_c[2:end])
+println_slim(@test AA1_c[1] ≈ 1.0)
+
+AA2_c = basis2_c(A)
+println_slim(@test AA2_c[1] ≈ 1.0)
+println_slim(@test AA2_c ≈ AA1_c)
+
+
+##   TODO: MOVE TO A LINEAR MODEL PROTOTYPE IMPLEMENTATION 
 
 # @info("Test gradient of SparseSymmetricProduct") 
 

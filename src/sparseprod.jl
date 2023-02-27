@@ -346,3 +346,36 @@ function _pullback_evalpool!(∂BB, ∂A, basis::PooledSparseProduct{NB},
    end
    return nothing 
 end
+
+
+# --------------------- connect with ChainRules 
+# todo ... 
+
+function rrule(::typeof(evalpool), basis::PooledSparseProduct{NB}, BB::Tuple) where {NB}
+   A = evalpool(basis, BB)
+
+   function pb(Δ)
+      ∂BB = _pullback_evalpool(Δ, basis, BB)
+      return NoTangent(), NoTangent(), ∂BB
+   end 
+
+   return A, pb 
+end
+
+# --------------------- connect with Lux 
+
+
+struct PooledSparseProductLayer{NB} <: AbstractExplicitLayer 
+   basis::PooledSparseProduct{NB}
+end
+
+lux(basis::PooledSparseProduct) = PooledSparseProductLayer(basis)
+
+initialparameters(rng::AbstractRNG, layer::PooledSparseProductLayer) = 
+      NamedTuple() 
+
+initialstates(rng::AbstractRNG, layer::PooledSparseProductLayer) = 
+      NamedTuple()
+
+(l::PooledSparseProductLayer)(BB, ps, st) = 
+      evalpool(l.basis, BB), st 

@@ -2,6 +2,13 @@ module ACEcore
 
 using ObjectPools: ArrayCache, TempArray, acquire!, release!
 
+import ChainRulesCore: rrule, NoTangent 
+
+import LuxCore: AbstractExplicitLayer, AbstractExplicitContainerLayer, 
+                 initialparameters, initialstates                 
+
+using Random: AbstractRNG                 
+
 include("sparseprod.jl")
 
 include("symmprod_dag.jl")

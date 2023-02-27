@@ -21,7 +21,7 @@ basis1 = SimpleProdBasis(spec)
 basis2 = SparseSymmProd(spec; T = ComplexF64)
 AA2 = basis2(A)
 
-spec_ = ACEcore.reconstruct_spec(basis2.dag)[basis2.proj]
+spec_ = ACEcore.reconstruct_spec(basis2)
 println_slim(@test spec_ == spec)
 println_slim(@test AA1 ≈ AA2)
 
@@ -32,7 +32,7 @@ spec_c = [ [Int[],]; spec]
 basis1_c = SimpleProdBasis(spec_c)
 basis2_c = SparseSymmProd(spec_c; T = ComplexF64)
 
-spec_c_ = ACEcore.reconstruct_spec(basis2_c.dag)[basis2_c.proj]
+spec_c_ = ACEcore.reconstruct_spec(basis2_c)
 println_slim(@test spec_c_ == spec_c)
 
 AA1_c = basis1_c(A)

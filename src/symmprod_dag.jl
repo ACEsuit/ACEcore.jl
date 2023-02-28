@@ -154,7 +154,8 @@ function SparseSymmProdDAG(spec::AbstractVector;
    end
 
    # add the full 1-particle basis (N=1) into the dag
-   num1 = maximum( maximum(vv; init=0) for vv in spec )
+   _mymax(vv) = length(vv) == 0 ? 0 : maximum(vv) # hack due to init missing for SVectors
+   num1 = maximum( _mymax(vv) for vv in spec )
    for i = 1:num1
       push!(nodes, BinDagNode((i+has0, 0)))
       push!(specnew, [i])

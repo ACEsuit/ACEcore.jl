@@ -54,7 +54,7 @@ prodgrad = ACEcore._prod_grad
 
 for N = 1:5 
    for ntest = 1:10
-      local v1 
+      local v1, g 
       b = rand(SVector{3, Float64})
       g = prodgrad(b.data, Val(3))
       g1 = ForwardDiff.gradient(prod, b)

@@ -82,8 +82,8 @@ function pullback_arg!(∂A, ∂AA::AbstractVector,
 
    # at this point the Δ̃[i] for i = 1:num1 will contain the 
    # gradients w.r.t. A 
-   for i = (has0+1):(has0+num1) 
-      ∂A[i] = Δ̃[i]
+   for i = 1:num1
+      ∂A[i] = Δ̃[i+has0]
    end
 
    return nothing                                                    
@@ -97,23 +97,30 @@ using LoopVectorization
 function evaluate!(AA, dag::SparseSymmProdDAG, A::AbstractMatrix{T}) where {T} 
    nX = size(A, 1)
    nodes = dag.nodes
+   has0 = dag.has0
    @assert size(AA, 2) >= length(dag)
    @assert size(AA, 1) >= size(A, 1)
    @assert size(A, 2) >= dag.num1
 
-   # Stage-1: copy the 1-particle basis into AA
+
    @inbounds begin 
+      if has0
+         @simd ivdep for j = 1:nX
+            AA[j, 1] = 1.0 
+         end
+      end 
+   
+      # Stage-1: copy the 1-particle basis into AA
       for i = 1:dag.num1
          # if (T <: Real)
          @simd ivdep for j = 1:nX
-            AA[j, i] = A[j, i]
+            AA[j, has0+i] = A[j, i]
          end
       end
 
    # Stage-2: go through the dag and store the intermediate results we need
-      for i = (dag.num1+1):length(dag)
+      for i = (dag.num1+has0+1):length(dag)
          n1, n2 = nodes[i]
-         # if (T <: Real)
          @simd ivdep for j = 1:nX 
             AA[j, i] = AA[j, n1] * AA[j, n2]
          end

@@ -72,19 +72,28 @@ end
 
 # -------------- Chainrules integration 
 
+function _pullback(Δ, basis::SparseSymmProd, A, AA, AAdag)
+   Δdag = zeros(eltype(Δ), length(AAdag))
+   Δdag[basis.proj] .= Δ
+   T = promote_type(eltype(Δdag), eltype(AAdag))
+   ΔA = zeros(T, length(A))
+   pullback_arg!(ΔA, Δdag, basis.dag, AAdag)
+   return ΔA
+end
+
 function rrule(::typeof(evaluate), basis::SparseSymmProd, A::AbstractVector)
    AAdag = evaluate(basis.dag, A)
    AA = AAdag[basis.proj]
 
-   function evaluate_pullback(Δ)
-      Δdag = zeros(eltype(Δ), length(AAdag))
-      Δdag[basis.proj] .= Δ
-      T = promote_type(eltype(Δdag), eltype(AAdag))
-      ΔA = zeros(T, length(A))
-      pullback_arg!(ΔA, Δdag, basis.dag, AAdag)
-      return NoTangent(), NoTangent(), ΔA
-   end
-   return AA, evaluate_pullback
+   # function evaluate_pullback(Δ)
+   #    Δdag = zeros(eltype(Δ), length(AAdag))
+   #    Δdag[basis.proj] .= Δ
+   #    T = promote_type(eltype(Δdag), eltype(AAdag))
+   #    ΔA = zeros(T, length(A))
+   #    pullback_arg!(ΔA, Δdag, basis.dag, AAdag)
+   #    return NoTangent(), NoTangent(), ΔA
+   # end
+   return AA, Δ -> (NoTangent(), NoTangent(), _pullback(Δ, basis, A, AA, AAdag))
 end
 
 # -------------- Lux integration 
@@ -96,6 +105,8 @@ end
 function lux(basis::SparseSymmProd) 
    return SparseSymmProdLayer(basis)
 end
+
+Base.length(l::SparseSymmProdLayer) = length(l.basis)
 
 initialparameters(rng::AbstractRNG, l::SparseSymmProdLayer) = NamedTuple() 
 

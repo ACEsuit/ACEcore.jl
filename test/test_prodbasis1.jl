@@ -8,8 +8,8 @@ using ACEbase.Testing: fdtest, dirfdtest
 
 ##
 
-M = 20 
-spec = ACEcore.Testing.generate_SO2_spec(5, M)
+M = 5 
+spec = ACEcore.Testing.generate_SO2_spec(5, 2*M)
 A = randn(ComplexF64, 2*M+1)
 
 ## 

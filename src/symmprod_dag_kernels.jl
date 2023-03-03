@@ -33,7 +33,7 @@ function evaluate!(AA, dag::SparseSymmProdDAG, A::AbstractVector)
    # Stage-1: copy the 1-particle basis into AA
    # note this entirely ignores the spec / nodes. It is implicit in the 
    # definitions and orderings
-   @inbounds for i = 1:(1+dag.num1)
+   @inbounds for i = 1:dag.num1
       AA[has0+i] = A[i]
    end
 

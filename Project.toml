@@ -23,7 +23,15 @@ julia = "1"
 ChainRulesCore = "1"
 LuxCore = "0.1"
 StaticArrays = "1"
-Adapt = "3.5, 4"
+Adapt = "3.5"
+ACEbase = "0.4.2"
+ObjectPools = "0.2.1" 
+Polynomials4ML = "0.1.2"
+LoopVectorization = "0.12" 
+ForwardDiff = "0.10"
+Combinatorics = "1"
+BenchmarkTools = "1"
+
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

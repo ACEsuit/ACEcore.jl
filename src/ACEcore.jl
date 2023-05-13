@@ -1,6 +1,8 @@
 module ACEcore
 
-using ObjectPools: ArrayCache, TempArray, acquire!, release!
+using ObjectPools: FlexArrayCache, FlexArray, 
+                   ArrayPool, TSafe, 
+                   acquire!, release!
 
 import ChainRulesCore: rrule, NoTangent 
 

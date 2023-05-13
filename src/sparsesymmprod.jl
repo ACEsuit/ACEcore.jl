@@ -3,17 +3,13 @@ using LoopVectorization
 
 struct SparseSymmProd{T} 
    dag::SparseSymmProdDAG{T} 
-   # replace projection with linear transform?
-   # proj::LinearTransform{SparseMatrixCSC{Bool, Int64}}
    proj::Vector{Int}
-   pool_AA::ArrayCache{T, 1}
-   bpool_AA::ArrayCache{T, 2}
+   pool::ArrayPool{FlexArrayCache}
 end
 
 function SparseSymmProd(spec::AbstractVector{<: AbstractVector}; T = Float64, kwargs...)
    dag = SparseSymmProdDAG(spec; T=T, kwargs...)
-   return SparseSymmProd(dag, dag.projection, 
-                         ArrayCache{T, 1}(), ArrayCache{T, 2}())
+   return SparseSymmProd(dag, dag.projection, ArrayPool(FlexArrayCache))
 end
 
 Base.length(basis::SparseSymmProd) = length(basis.proj)
@@ -25,14 +21,14 @@ reconstruct_spec(basis::SparseSymmProd) = reconstruct_spec(basis.dag)[basis.proj
 # -------------- evaluation interfaces 
 
 function evaluate(basis::SparseSymmProd, A::AbstractVector{T}) where {T}
-   AA = acquire!(basis.pool_AA, length(basis))
+   AA = acquire!(basis.pool, :AA, (length(basis),), T)
    evaluate!(parent(AA), basis, A)
    return AA
 end
 
 function evaluate(basis::SparseSymmProd, A::AbstractMatrix{T}) where {T}
    nX = size(A, 1)
-   AA = acquire!(basis.bpool_AA, (nX, length(basis)))
+   AA = acquire!(basis.pool, :AAbatch, (nX, length(basis)), T)
    evaluate!(parent(AA), basis, A)
    return AA
 end

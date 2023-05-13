@@ -12,8 +12,7 @@ struct SparseSymmProdDAG{T}
    numstore::Int
    projection::Vector{Int}
    # ---- temps
-   pool_AA::ArrayCache{T, 1}
-   bpool_AA::ArrayCache{T, 2}
+   pool::ArrayPool{FlexArrayCache}
 end
 
 # warning: this is not the length of the basis!!! 
@@ -25,7 +24,7 @@ SparseSymmProdDAG(; T=Float64) = SparseSymmProdDAG{T}(Vector{BinDagNode}(undef, 
 
 SparseSymmProdDAG{T}(nodes, has0, num1, numstore, projection)  where {T} = 
                SparseSymmProdDAG{T}(nodes, has0, num1, numstore, projection, 
-                                    ArrayCache{T, 1}(), ArrayCache{T, 2}())
+                                    ArrayPool(FlexArrayCache))
 
 # # -------------- FIO
 

@@ -5,14 +5,14 @@
 (dag::SparseSymmProdDAG)(args...) = evaluate(dag, args...)
 
 function evaluate(dag::SparseSymmProdDAG, A::AbstractVector{T}) where {T}
-   AA = acquire!(dag.pool_AA, length(dag), T)
+   AA = acquire!(dag.pool, :AA, (length(dag),), T)
    evaluate!(AA, dag, A)
    return AA
 end
 
 function evaluate(dag::SparseSymmProdDAG, A::AbstractMatrix{T}) where {T}
    nX = size(A, 1)
-   AA = acquire!(dag.bpool_AA, (nX, length(dag)), T)
+   AA = acquire!(dag.pool, :AAbatch, (nX, length(dag)), T)
    evaluate!(AA, dag, A)
    return AA
 end
@@ -135,7 +135,7 @@ end
 function evaluate_dot(dag::SparseSymmProdDAG, A::AbstractMatrix{T}, c, freal
                        ) where {T}
    nX = size(A, 1)
-   AA = acquire!(dag.bpool_AA, (nX, length(dag)), T)
+   AA = acquire!(dag.pool, :AA, (nX, length(dag)), T)
    vals = zeros(freal(T), nX)
    evaluate_dot!(vals, parent(AA), dag, A, c, freal)
    return vals, AA
